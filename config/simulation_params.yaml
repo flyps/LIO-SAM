@@ -1,11 +1,12 @@
 /**:
   ros__parameters:
+    use_sim_time: true
 
     # Topics
-    pointCloudTopic: "/points"                   # Point cloud data
+    pointCloudTopic: "/lidar/points"             # Point cloud data
     imuTopic: "/imu/data"                        # IMU data
-    odomTopic: "odometry/imu"                    # IMU pre-preintegration odometry, same frequency as IMU
-    gpsTopic: "odometry/gpsz"                    # GPS odometry topic from navsat, see module_navsat.launch file
+    odomTopic: "/odometry/imu"                   # IMU pre-preintegration odometry, same frequency as IMU
+    gpsTopic: "/odometry/gnss"                   # GPS odometry topic from navsat, see module_navsat.launch file
 
     # Frames
     lidarFrame: "lidar_link"
@@ -14,14 +15,14 @@
     mapFrame: "map"
 
     # GPS Settings
-    useImuHeadingInitialization: false           # if using GPS data, set to "true"
-    useGpsElevation: false                       # if GPS elevation is bad, set to "false"
+    useImuHeadingInitialization: true            # if using GPS data, set to "true"
+    useGpsElevation: true                        # if GPS elevation is bad, set to "false"
     gpsCovThreshold: 2.0                         # m^2, threshold for using GPS data
     poseCovThreshold: 25.0                       # m^2, threshold for using GPS data
 
     # Export settings
     savePCD: false                               # https://github.com/TixiaoShan/LIO-SAM/issues/3
-    savePCDDirectory: "/Downloads/LOAM/"         # in your home folder, starts and ends with "/". Warning: the code deletes "LOAM" folder then recreates it. See "mapOptimization" for implementation
+    savePCDDirectory: "/ros2_ws/load/"           # in your home folder, starts and ends with "/". Warning: the code deletes "LOAM" folder then recreates it. See "mapOptimization" for implementation
 
     # Sensor Settings
     sensor: ouster                               # lidar sensor type, either 'velodyne', 'ouster' or 'livox'
@@ -33,26 +34,30 @@
     lidarMaxRange: 1000.0                        # default: 1000.0, maximum lidar range to be used
 
     # IMU Settings
-    imuAccNoise: 3.9939570888238808e-03
-    imuGyrNoise: 1.5636343949698187e-03
-    imuAccBiasN: 6.4356659353532566e-05
-    imuGyrBiasN: 3.5640318696367613e-05
+    imuAccNoise: 1e-6
+    imuGyrNoise: 1e-6
+    imuAccBiasN: 1e-9
+    imuGyrBiasN: 1e-9
 
     imuGravity: 9.80511
     imuRPYWeight: 0.01
 
-    extrinsicTrans:  [ 0.0,  0.0,  0.0 ]
-    extrinsicRot:    [-1.0,  0.0,  0.0,
-                       0.0,  1.0,  0.0,
-                       0.0,  0.0, -1.0 ]
-    extrinsicRPY: [ 0.0,  1.0,  0.0,
-                   -1.0,  0.0,  0.0,
-                    0.0,  0.0,  1.0 ]
+    # LIO-SAM transforms IMU raw data from the IMU frame to the Lidar frame, which follows the ROS REP-105 convention (x - forward, y - left, z - upward).
+    extrinsicTrans: [ -4.500, -0.003, 2.000 ]
 
+    #"extrinsicRot" in "params.yaml" is a rotation matrix that transforms IMU gyro and acceleometer measurements to lidar frame.
+    extrinsicRot: [ 1.0, 0.0, 0.0,
+                    0.0, 1.0, 0.0,
+                    0.0, 0.0, 1.0 ]
+
+    #"extrinsicRPY" in "params.yaml" is a rotation matrix that transforms IMU orientation to lidar frame.
+    extrinsicRPY: [ 1.0, 0.0, 0.0,
+                    0.0, 1.0, 0.0,
+                    0.0, 0.0, 1.0 ]
     # LOAM feature threshold
     edgeThreshold: 1.0
     surfThreshold: 0.1
-    edgeFeatureMinValidNum: 10
+    edgeFeatureMinValidNum: 1
     surfFeatureMinValidNum: 100
 
     # voxel filter paprams
@@ -61,7 +66,7 @@
     mappingSurfLeafSize: 0.4                      # default: 0.4 - outdoor, 0.2 - indoor
 
     # robot motion constraint (in case you are using a 2D robot)
-    z_tollerance: 1000.0                          # meters
+    z_tollerance: 0.5                             # meters
     rotation_tollerance: 1000.0                   # radians
 
     # CPU Params

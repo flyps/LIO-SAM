@@ -1,62 +1,49 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>lio_sam</name>
-  <version>1.0.0</version>
-  <description>Lidar Odometry</description>
+    <name>lio_sam</name>
+    <version>1.0.0</version>
+    <description>Lidar Odometry</description>
 
-  <maintainer email="shant@mit.edu">Tixiao Shan</maintainer>
+    <author>Tixiao Shan</author>
+    <maintainer email="mbednarek@flyps.io">Michał Bednarek</maintainer>
 
-  <license>TODO</license>
+    <license>TODO</license>
 
-  <author>Tixiao Shan</author>
+    <buildtool_depend>ament_cmake</buildtool_depend>
+    <buildtool_depend>rosidl_default_generators</buildtool_depend>
 
-  <buildtool_depend>ament_cmake</buildtool_depend>
-  <buildtool_depend>rosidl_default_generators</buildtool_depend>
+    <depend>Eigen</depend>
+    <depend>OpenCV</depend>
+    <depend>cv_bridge</depend>
+    <depend>geometry_msgs</depend>
+    <depend>gtsam</depend>
+    <depend>nav_msgs</depend>
+    <depend>pcl_msgs</depend>
+    <depend>perception_pcl</depend>
+    <depend>rclcpp</depend>
+    <depend>rclpy</depend>
+    <depend>sensor_msgs</depend>
+    <depend>std_msgs</depend>
+    <depend>tf2</depend>
+    <depend>tf2_eigen</depend>
+    <depend>tf2_geometry_msgs</depend>
+    <depend>tf2_ros</depend>
+    <depend>tf2_sensor_msgs</depend>
+    <depend>visualization_msgs</depend>
 
-  <build_depend>rclcpp</build_depend>
-  <build_depend>rclpy</build_depend>
-  <build_depend>std_msgs</build_depend>
-  <build_depend>sensor_msgs</build_depend>
-  <build_depend>nav_msgs</build_depend>
-  <build_depend>geometry_msgs</build_depend>
-  <build_depend>tf2_geometry_msgs</build_depend>
-  <build_depend>tf2_sensor_msgs</build_depend>
-  <build_depend>visualization_msgs</build_depend>
-  <build_depend>pcl_msgs</build_depend>
-  <build_depend>tf2_eigen</build_depend>
-  <build_depend>tf2_ros</build_depend>
-  <build_depend>tf2</build_depend>
-  <build_depend>OpenCV</build_depend>
-  <build_depend>PCL</build_depend>
-  <build_depend>GTSAM</build_depend>
-  <build_depend>Eigen</build_depend>
+    <member_of_group>rosidl_interface_packages</member_of_group>
 
-  <exec_depend>rosidl_default_runtime</exec_depend>
-  <exec_depend>rclcpp</exec_depend>
-  <exec_depend>rclpy</exec_depend>
-  <exec_depend>std_msgs</exec_depend>
-  <exec_depend>sensor_msgs</exec_depend>
-  <exec_depend>nav_msgs</exec_depend>
-  <exec_depend>geometry_msgs</exec_depend>
-  <exec_depend>visualization_msgs</exec_depend>
-  <exec_depend>pcl_msgs</exec_depend>
-  <exec_depend>tf2_geometry_msgs</exec_depend>
-  <exec_depend>tf2_sensor_msgs</exec_depend>
-  <exec_depend>tf2_eigen</exec_depend>
-  <exec_depend>tf2_ros</exec_depend>
-  <exec_depend>tf2</exec_depend>
-  <exec_depend>OpenCV</exec_depend>
-  <exec_depend>PCL</exec_depend>
-  <exec_depend>GTSAM</exec_depend>
-  <exec_depend>Eigen</exec_depend>
-  
-  <member_of_group>rosidl_interface_packages</member_of_group>
+    <!-- Test dependencies -->
+    <test_depend>ament_lint_auto</test_depend>
+    <test_depend>ament_cmake_cppcheck</test_depend>
+    <test_depend>ament_cmake_cpplint</test_depend>
+    <test_depend>ament_cmake_uncrustify</test_depend>
+    <test_depend>ament_cmake_flake8</test_depend>
+    <test_depend>ament_cmake_pep257</test_depend>
+    <test_depend>ament_cmake_xmllint</test_depend>
 
-  <test_depend>ament_lint_auto</test_depend>
-  <test_depend>ament_lint_common</test_depend>
-
-  <export>
-    <build_type>ament_cmake</build_type>
-  </export>
+    <export>
+        <build_type>ament_cmake</build_type>
+    </export>
 </package>
