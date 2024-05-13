@@ -133,7 +133,9 @@ public:
         }
         geometry_msgs::msg::TransformStamped ts;
         tf2::convert(tCur, ts);
+        ts.header.stamp = odomMsg->header.stamp;
         ts.child_frame_id = baselinkFrame;
+        ts.header.frame_id = odometryFrame;
         tfBroadcaster->sendTransform(ts);
 
         // publish IMU path
