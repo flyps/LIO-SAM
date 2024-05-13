@@ -1625,7 +1625,7 @@ public:
         laserOdometryROS.pose.pose.orientation = quat_msg;
         pubLaserOdometryGlobal->publish(laserOdometryROS);
 
-        // Publish TF
+        // Publish TF in the baselinkFrame (the same as imuPreintegration odom)
         quat_tf.setRPY(transformTobeMapped[0], transformTobeMapped[1], transformTobeMapped[2]);
         tf2::Transform t_odom_to_lidar = tf2::Transform(quat_tf,
                                                         tf2::Vector3(transformTobeMapped[3], transformTobeMapped[4],
@@ -1634,7 +1634,7 @@ public:
         tf2::Stamped <tf2::Transform> temp_odom_to_lidar(t_odom_to_lidar, time_point, odometryFrame);
         geometry_msgs::msg::TransformStamped trans_odom_to_lidar;
         tf2::convert(temp_odom_to_lidar, trans_odom_to_lidar);
-        trans_odom_to_lidar.child_frame_id = "lidar_link";
+        trans_odom_to_lidar.child_frame_id = baselinkFrame;
         br->sendTransform(trans_odom_to_lidar);
 
         // Publish odometry for ROS (incremental)

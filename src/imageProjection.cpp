@@ -290,7 +290,9 @@ public:
             }
             if (deskewFlag == -1)
                 RCLCPP_WARN(get_logger(),
-                            "Point cloud timestamp not available, deskew function disabled, system will drift significantly!");
+                            "Point cloud timestamp not available, deskew function disabled, "
+                            "system will drift significantly! If the data come from the simulation, deskew "
+                            "function is not needed.");
         }
 
         return true;
