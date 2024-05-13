@@ -31,7 +31,7 @@
     downsampleRate: 1                            # default: 1. Downsample your data if too many
     # points. i.e., 16 = 64 / 4, 16 = 16 / 1
     lidarMinRange: 0.1                           # default: 1.0, minimum lidar range to be used
-    lidarMaxRange: 1000.0                        # default: 1000.0, maximum lidar range to be used
+    lidarMaxRange: 15.0                          # default: 1000.0, maximum lidar range to be used
 
     # IMU Settings (default values - requires calibration)
     imuAccNoise: 3.9939570888238808e-03
@@ -48,14 +48,14 @@
     extrinsicTrans: [ 0.0, 0.0, 0.0 ]
 
     #"extrinsicRot" in "params.yaml" is a rotation matrix that transforms IMU gyro and accelerometer measurements to lidar frame.
-    extrinsicRot: [ -1.0, 0.0, 0.0,
+    extrinsicRot: [ 1.0, 0.0, 0.0,
                     0.0, 1.0, 0.0,
-                    0.0, 0.0, -1.0 ]
+                    0.0, 0.0, 1.0 ]
 
     #"extrinsicRPY" in "params.yaml" is a rotation matrix that transforms IMU orientation to lidar frame.
-    extrinsicRPY: [ -1.0, 0.0, 0.0,
+    extrinsicRPY: [ 1.0, 0.0, 0.0,
                     0.0, 1.0, 0.0,
-                    0.0, 0.0, -1.0 ]
+                    0.0, 0.0, 1.0 ]
 
     # LOAM feature threshold
     edgeThreshold: 0.5

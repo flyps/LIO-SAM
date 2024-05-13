@@ -34,6 +34,10 @@ def generate_launch_description():
         launch_arguments={
             'use_sim_time': use_sim_time,
             'start_ekf_local': 'false',
+            'start_ekf_global': 'true',
+            'ekf_local_config_path': os.path.join(share_dir, "config", "ekf.global.yaml"),
+            'start_navsat_transform': 'true',
+            'navsat_config_path': os.path.join(share_dir, "config", "navsat.transform.yaml")
         }.items()
     )
 
@@ -69,17 +73,25 @@ def generate_launch_description():
             parameters=[parameter_file],
             output='screen'
         ),
-        Node(
-            package='rviz2',
-            executable='rviz2',
-            name='rviz2',
-            arguments=['-d', rviz_config_file],
-            output='screen'
-        )
+        # Node(
+        #     package='rviz2',
+        #     executable='rviz2',
+        #     name='rviz2',
+        #     arguments=['-d', rviz_config_file],
+        #     output='screen'
+        # )
     ])
 
     return LaunchDescription([
         *params_declare,
-        start_global_odometry,
+        Node(
+            package='tf2_ros',
+            executable='static_transform_publisher',
+            arguments='0.0 0.0 0.0 0.0 0.0 0.0 map odom'.split(' '),
+            parameters=[parameter_file],
+            output='screen'
+        ),
+        # TODO(mbed): FLY-232 - Add GNSS support to the LIO-SAM
+        # start_global_odometry,
         start_lio_sam
     ])
