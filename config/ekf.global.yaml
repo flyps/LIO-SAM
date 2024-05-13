@@ -1,0 +1,99 @@
+# Provided configuration does not publish any TFs, it is only to convert GNSS signal to odometry
+# that is used by the LIO-SAM mapping module.
+
+ekf_global_node:
+  ros__parameters:
+    frequency: 50.0
+    sensor_timeout: 0.1
+    two_d_mode: false
+    transform_time_offset: 0.0
+    transform_timeout: 0.0
+    print_diagnostics: false
+    debug: false
+    permit_corrected_publication: false
+    publish_acceleration: false
+    publish_tf: false
+
+    map_frame: map                  # Defaults to "map" if unspecified
+    odom_frame: odom                # Defaults to "odom" if unspecified
+    base_link_frame: base_link      # Defaults to "base_link" if unspecified
+    world_frame: odom               # Defaults to the value of odom_frame if unspecified
+
+    # Wheeled odometry - output from the robot_localization package (optional)
+    odom0: /odometry/wheels
+    odom0_config: [ false, false, false,   # x y z
+                    false, false, false,   # roll pitch yaw
+                    true,  true,  false,   # vx vy vz
+                    false, false, true,    # vroll vpitch vyaw
+                    false, false, false ]   # ax ay az
+    odom0_queue_size: 12
+    odom0_nodelay: false
+    odom0_differential: false
+    odom0_relative: false
+
+    # GNSS odometry - output from the navsat_transform_node
+    odom1: /odometry/gnss
+    odom1_config: [ true,  true,  false,
+                    false, false, false,
+                    false, false, false,
+                    false, false, false,
+                    false, false, false ]
+    odom1_queue_size: 10
+    odom1_differential: false
+    odom1_relative: false
+
+    # IMU data - there we use world-referenced yaw measurements to correct the filter's yaw estimate. We don't
+    # use the odometry yaw here, because it's not world-referenced.
+    imu0: /imu/data
+    imu0_config: [ false, false, false,     # x y z
+                   false, false, true,      # roll pitch yaw
+                   false, false, false,     # vx vy vz
+                   false, false, false,     # vroll vpitch vyaw
+                   false, false, false ]    # ax ay az
+    imu0_nodelay: false
+    imu0_differential: true # Typically, IMU measurements are noisy and drift
+    imu0_relative: true
+    imu0_queue_size: 25
+    imu0_remove_gravitational_acceleration: true
+
+    # Other settings
+    use_control: false
+    stamped_control: false
+    control_timeout: 0.2
+    control_config: [ true, false, false, false, false, true ]
+    acceleration_limits: [ 1.3, 0.0, 0.0, 0.0, 0.0, 3.4 ]
+    deceleration_limits: [ 1.3, 0.0, 0.0, 0.0, 0.0, 4.5 ]
+    acceleration_gains: [ 0.8, 0.0, 0.0, 0.0, 0.0, 0.9 ]
+    deceleration_gains: [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ]
+
+    process_noise_covariance: [ 0.05, 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+                                0.0,    0.05, 0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+                                0.0,    0.0,    0.06, 0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+                                0.0,    0.0,    0.0,    0.03, 0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+                                0.0,    0.0,    0.0,    0.0,    0.03, 0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+                                0.0,    0.0,    0.0,    0.0,    0.0,    0.1,  0.0,     0.0,     0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+                                0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.025, 0.0,     0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+                                0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.025, 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+                                0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.1, 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+                                0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.01, 0.0,    0.0,    0.0,    0.0,    0.0,
+                                0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.01, 0.0,    0.0,    0.0,    0.0,
+                                0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.02, 0.0,    0.0,    0.0,
+                                0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.0,    0.01, 0.0,    0.0,
+                                0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.0,    0.0,    0.01, 0.0,
+                                0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.015 ]
+
+    initial_estimate_covariance: [ 1e-9, 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,     0.0,    0.0,    0.0,
+                                   0.0,    1e-9, 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,     0.0,    0.0,    0.0,
+                                   0.0,    0.0,    1e-9, 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,     0.0,    0.0,    0.0,
+                                   0.0,    0.0,    0.0,    1e-9, 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,     0.0,    0.0,    0.0,
+                                   0.0,    0.0,    0.0,    0.0,    1e-9, 0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,     0.0,    0.0,    0.0,
+                                   0.0,    0.0,    0.0,    0.0,    0.0,    1e-9, 0.0,    0.0,    0.0,    0.0,     0.0,     0.0,     0.0,    0.0,    0.0,
+                                   0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    1e-9, 0.0,    0.0,    0.0,     0.0,     0.0,     0.0,    0.0,    0.0,
+                                   0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    1e-9, 0.0,    0.0,     0.0,     0.0,     0.0,    0.0,    0.0,
+                                   0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    1e-9, 0.0,     0.0,     0.0,     0.0,    0.0,    0.0,
+                                   0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    1e-9,  0.0,     0.0,     0.0,    0.0,    0.0,
+                                   0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     1e-9,  0.0,     0.0,    0.0,    0.0,
+                                   0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     1e-9,  0.0,    0.0,    0.0,
+                                   0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,     1e-9, 0.0,    0.0,
+                                   0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,     0.0,    1e-9, 0.0,
+                                   0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,     0.0,    0.0,    1e-9 ]
