@@ -56,7 +56,7 @@ def generate_launch_description():
             parameters=[parameter_file],
             output='screen',
             remappings=[
-                ('/points', 'lidar/points')
+                ('/points', '/lidar/points/crop_box_filter')
             ]
         ),
         Node(
@@ -91,7 +91,6 @@ def generate_launch_description():
             parameters=[parameter_file],
             output='screen'
         ),
-        # TODO(mbed): FLY-232 - Add GNSS support to the LIO-SAM
-        # start_global_odometry,
+        start_global_odometry,
         start_lio_sam
     ])
