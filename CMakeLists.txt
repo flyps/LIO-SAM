@@ -30,11 +30,15 @@ find_package(GTSAM REQUIRED)
 find_package(eigen3_cmake_module REQUIRED)
 find_package(Eigen3)
 find_package(OpenMP REQUIRED)
+find_package(pcl_conversions REQUIRED)
+find_package(PCL REQUIRED)
 
 include_directories(
         include/lio_sam
         SYSTEM
         /ros2_ws/install/lio_sam/include/lio_sam
+        ${PCL_INCLUDE_DIRS}
+        ${pcl_conversions_INCLUDE_DIRS}
 )
 
 rosidl_generate_interfaces(${PROJECT_NAME} "msg/CloudInfo.msg" "srv/SaveMap.srv" DEPENDENCIES std_msgs sensor_msgs)
@@ -112,5 +116,6 @@ if (BUILD_TESTING)
     # ament_lint_auto_find_test_dependencies()
 endif ()
 
+ament_export_include_directories(include)
 ament_package()
 
