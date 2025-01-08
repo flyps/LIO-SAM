@@ -3,14 +3,15 @@
 
 struct VelodynePointXYZIRT {
     PCL_ADD_POINT4D
-            PCL_ADD_INTENSITY;
+
+    PCL_ADD_INTENSITY;
     uint16_t ring;
     float time;
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 } EIGEN_ALIGN16;
 POINT_CLOUD_REGISTER_POINT_STRUCT (VelodynePointXYZIRT,
-(float, x, x) (float, y, y) (float, z, z) (float, intensity, intensity)
-(uint16_t, ring, ring) (float, time, time)
+                                   (float, x, x)(float, y, y)(float, z, z)(float, intensity, intensity)
+                                           (uint16_t, ring, ring)(float, time, time)
 )
 
 struct OusterPointXYZIRT {
@@ -24,9 +25,9 @@ struct OusterPointXYZIRT {
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 } EIGEN_ALIGN16;
 POINT_CLOUD_REGISTER_POINT_STRUCT(OusterPointXYZIRT,
-(float, x, x) (float, y, y) (float, z, z) (float, intensity, intensity)
-(uint32_t, t, t) (uint16_t, reflectivity, reflectivity)
-(uint8_t, ring, ring) (uint16_t, noise, noise) (uint32_t, range, range)
+                                  (float, x, x)(float, y, y)(float, z, z)(float, intensity, intensity)
+                                          (uint32_t, t, t)(uint16_t, reflectivity, reflectivity)
+                                          (uint8_t, ring, ring)(uint16_t, noise, noise)(uint32_t, range, range)
 )
 
 // Use the Velodyne point format as a common representation
@@ -49,13 +50,13 @@ private:
 
     rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr subImu;
     rclcpp::CallbackGroup::SharedPtr callbackGroupImu;
-    std::deque <sensor_msgs::msg::Imu> imuQueue;
+    std::deque<sensor_msgs::msg::Imu> imuQueue;
 
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr subOdom;
     rclcpp::CallbackGroup::SharedPtr callbackGroupOdom;
-    std::deque <nav_msgs::msg::Odometry> odomQueue;
+    std::deque<nav_msgs::msg::Odometry> odomQueue;
 
-    std::deque <sensor_msgs::msg::PointCloud2> cloudQueue;
+    std::deque<sensor_msgs::msg::PointCloud2> cloudQueue;
     sensor_msgs::msg::PointCloud2 currentCloudMsg;
 
     double *imuTime = new double[queueLength];
@@ -88,10 +89,15 @@ private:
 
     vector<int> columnIdnCountVec;
 
+    std::shared_ptr<tf2_ros::Buffer> tfBuffer;
+    std::shared_ptr<tf2_ros::TransformListener> tfListener;
 
 public:
     ImageProjection(const rclcpp::NodeOptions &options) :
             ParamServer("lio_sam_imageProjection", options), deskewFlag(0) {
+        tfBuffer = std::make_shared<tf2_ros::Buffer>(get_clock());
+        tfListener = std::make_shared<tf2_ros::TransformListener>(*tfBuffer);
+
         callbackGroupLidar = create_callback_group(
                 rclcpp::CallbackGroupType::MutuallyExclusive);
         callbackGroupImu = create_callback_group(
@@ -170,7 +176,7 @@ public:
     void imuHandler(const sensor_msgs::msg::Imu::SharedPtr imuMsg) {
         sensor_msgs::msg::Imu thisImu = imuConverter(*imuMsg);
 
-        std::lock_guard <std::mutex> lock1(imuLock);
+        std::lock_guard<std::mutex> lock1(imuLock);
         imuQueue.push_back(thisImu);
 
         // debug IMU data
@@ -192,7 +198,7 @@ public:
     }
 
     void odometryHandler(const nav_msgs::msg::Odometry::SharedPtr odometryMsg) {
-        std::lock_guard <std::mutex> lock2(odoLock);
+        std::lock_guard<std::mutex> lock2(odoLock);
         odomQueue.push_back(*odometryMsg);
     }
 
@@ -221,6 +227,7 @@ public:
         // convert cloud
         currentCloudMsg = std::move(cloudQueue.front());
         cloudQueue.pop_front();
+
         if (sensor == SensorType::VELODYNE || sensor == SensorType::LIVOX) {
             pcl::moveFromROSMsg(currentCloudMsg, *laserCloudIn);
         } else if (sensor == SensorType::OUSTER) {
@@ -295,12 +302,29 @@ public:
                             "function is not needed.");
         }
 
+        // transform pointcloud to baselinkFrame and change frame_id of the published cloud info
+        if (cloudHeader.frame_id != baselinkFrame) {
+            Eigen::Isometry3d base2lidar;
+            try {
+                auto transform = tfBuffer->lookupTransform(baselinkFrame,
+                                                           currentCloudMsg.header.frame_id,
+                                                           rclcpp::Time(0));
+                base2lidar = tf2::transformToEigen(transform.transform);
+            }
+            catch (tf2::TransformException &ex) {
+                RCLCPP_ERROR(get_logger(), "%s", ex.what());
+                rclcpp::shutdown();
+            }
+            pcl::transformPointCloud(*laserCloudIn, *laserCloudIn, base2lidar.cast<float>());
+            cloudHeader.frame_id = baselinkFrame;
+        }
+
         return true;
     }
 
     bool deskewInfo() {
-        std::lock_guard <std::mutex> lock1(imuLock);
-        std::lock_guard <std::mutex> lock2(odoLock);
+        std::lock_guard<std::mutex> lock1(imuLock);
+        std::lock_guard<std::mutex> lock2(odoLock);
 
         // make sure IMU data available for the scan
         if (imuQueue.empty() ||
@@ -612,7 +636,8 @@ public:
 
     void publishClouds() {
         cloudInfo.header = cloudHeader;
-        cloudInfo.cloud_deskewed = publishCloud(pubExtractedCloud, extractedCloud, cloudHeader.stamp, lidarFrame);
+        cloudInfo.cloud_deskewed = publishCloud(pubExtractedCloud, extractedCloud, cloudHeader.stamp,
+                                                cloudHeader.frame_id);
         pubLaserCloudInfo->publish(cloudInfo);
     }
 };

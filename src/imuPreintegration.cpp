@@ -181,7 +181,7 @@ public:
     gtsam::noiseModel::Diagonal::shared_ptr correctionNoise2;
     gtsam::Vector noiseModelBetweenBias;
 
-
+    boost::shared_ptr<gtsam::PreintegratedImuMeasurements::Params> imu_params;
     gtsam::PreintegratedImuMeasurements *imuIntegratorOpt_;
     gtsam::PreintegratedImuMeasurements *imuIntegratorImu_;
 
@@ -235,14 +235,16 @@ public:
                 odomOpt);
 
         pubImuOdometry = create_publisher<nav_msgs::msg::Odometry>(odomTopic + "_incremental", qos_imu);
+    }
 
-        boost::shared_ptr <gtsam::PreintegrationParams> p = gtsam::PreintegrationParams::MakeSharedU(imuGravity);
-        p->accelerometerCovariance =
+    void setupIMU() {
+        imu_params = gtsam::PreintegrationParams::MakeSharedU(imuGravity);
+        imu_params->accelerometerCovariance =
                 gtsam::Matrix33::Identity(3, 3) * pow(imuAccNoise, 2); // acc white noise in continuous
-        p->gyroscopeCovariance =
+        imu_params->gyroscopeCovariance =
                 gtsam::Matrix33::Identity(3, 3) * pow(imuGyrNoise, 2); // gyro white noise in continuous
-        p->integrationCovariance = gtsam::Matrix33::Identity(3, 3) *
-                                   pow(1e-4, 2); // error committed in integrating position from velocities
+        imu_params->integrationCovariance = gtsam::Matrix33::Identity(3, 3) *
+                                            pow(1e-4, 2); // error committed in integrating position from velocities
         gtsam::imuBias::ConstantBias prior_imu_bias(
                 (gtsam::Vector(6) << 0, 0, 0, 0, 0, 0).finished());; // assume zero initial bias
 
@@ -257,9 +259,17 @@ public:
         noiseModelBetweenBias = (gtsam::Vector(6)
                 << imuAccBiasN, imuAccBiasN, imuAccBiasN, imuGyrBiasN, imuGyrBiasN, imuGyrBiasN).finished();
 
-        imuIntegratorImu_ = new gtsam::PreintegratedImuMeasurements(p,
+        // take into account the IMU's pose (extRot) and position (extTrans) in preintegration
+        auto imu2lidar_rpy = extRot.eulerAngles(2, 1, 0);
+        auto imu2lidar_rot = gtsam::Rot3::RzRyRx(imu2lidar_rpy[0], imu2lidar_rpy[1], imu2lidar_rpy[2]);
+        imu2Lidar = gtsam::Pose3(imu2lidar_rot, gtsam::Point3(-extTrans.x(), -extTrans.y(), -extTrans.z()));
+        lidar2Imu = imu2Lidar.inverse();
+
+        imu_params->setBodyPSensor(imu2Lidar);
+
+        imuIntegratorImu_ = new gtsam::PreintegratedImuMeasurements(imu_params,
                                                                     prior_imu_bias); // setting up the IMU integration for IMU message thread
-        imuIntegratorOpt_ = new gtsam::PreintegratedImuMeasurements(p,
+        imuIntegratorOpt_ = new gtsam::PreintegratedImuMeasurements(imu_params,
                                                                     prior_imu_bias); // setting up the IMU integration for optimization
     }
 
@@ -305,6 +315,7 @@ public:
 
         // 0. initialize system
         if (systemInitialized == false) {
+            setupIMU();
             resetOptimization();
 
             // pop old IMU message
@@ -514,7 +525,7 @@ public:
         odometry.header.frame_id = odometryFrame;
         odometry.child_frame_id = "odom_imu";
 
-        // transform imu pose to ldiar
+        // transform imu pose to lidar
         gtsam::Pose3 imuPose = gtsam::Pose3(currentState.quaternion(), currentState.position());
         gtsam::Pose3 lidarPose = imuPose.compose(imu2Lidar);
 
