@@ -361,9 +361,10 @@ public:
             double currentImuTime = stamp2Sec(thisImuMsg.header.stamp);
 
             // get roll, pitch, and yaw estimation for this scan
-            if (currentImuTime <= timeScanCur)
-                imuRPY2rosRPY(&thisImuMsg, &cloudInfo.imu_roll_init, &cloudInfo.imu_pitch_init,
-                              &cloudInfo.imu_yaw_init);
+            // TODO(mbed): verify if it's always true when lidar is automatically moved to base_link
+//            if (currentImuTime <= timeScanCur)
+//                imuRPY2rosRPY(&thisImuMsg, &cloudInfo.imu_roll_init, &cloudInfo.imu_pitch_init,
+//                              &cloudInfo.imu_yaw_init);
             if (currentImuTime > timeScanEnd + 0.01)
                 break;
 
