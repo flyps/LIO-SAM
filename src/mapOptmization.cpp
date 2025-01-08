@@ -28,7 +28,8 @@ using symbol_shorthand::G; // GPS pose
     */
 struct PointXYZIRPYT {
     PCL_ADD_POINT4D
-            PCL_ADD_INTENSITY;                  // preferred way of adding a XYZ+padding
+
+    PCL_ADD_INTENSITY;                  // preferred way of adding a XYZ+padding
     float roll;
     float pitch;
     float yaw;
@@ -37,10 +38,10 @@ struct PointXYZIRPYT {
 } EIGEN_ALIGN16;                    // enforce SSE padding for correct memory alignment
 
 POINT_CLOUD_REGISTER_POINT_STRUCT (PointXYZIRPYT,
-(float, x, x) (float, y, y)
-(float, z, z) (float, intensity, intensity)
-(float, roll, roll) (float, pitch, pitch) (float, yaw, yaw)
-(double, time, time))
+                                   (float, x, x)(float, y, y)
+                                           (float, z, z)(float, intensity, intensity)
+                                           (float, roll, roll)(float, pitch, pitch)(float, yaw, yaw)
+                                           (double, time, time))
 
 typedef PointXYZIRPYT PointTypePose;
 
@@ -52,7 +53,6 @@ public:
     // gtsam
     NonlinearFactorGraph gtSAMgraph;
     Values initialEstimate;
-    Values optimizedEstimate;
     ISAM2 *isam;
     Values isamCurrentEstimate;
     Eigen::MatrixXd poseCovariance;
@@ -75,11 +75,11 @@ public:
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr subGPS;
     rclcpp::Subscription<std_msgs::msg::Float64MultiArray>::SharedPtr subLoop;
 
-    std::deque <nav_msgs::msg::Odometry> gpsQueue;
+    std::deque<nav_msgs::msg::Odometry> gpsQueue;
     lio_sam::msg::CloudInfo cloudInfo;
 
-    vector <pcl::PointCloud<PointType>::Ptr> cornerCloudKeyFrames;
-    vector <pcl::PointCloud<PointType>::Ptr> surfCloudKeyFrames;
+    vector<pcl::PointCloud<PointType>::Ptr> cornerCloudKeyFrames;
+    vector<pcl::PointCloud<PointType>::Ptr> surfCloudKeyFrames;
 
     pcl::PointCloud<PointType>::Ptr cloudKeyPoses3D;
     pcl::PointCloud<PointTypePose>::Ptr cloudKeyPoses6D;
@@ -94,15 +94,15 @@ public:
     pcl::PointCloud<PointType>::Ptr laserCloudOri;
     pcl::PointCloud<PointType>::Ptr coeffSel;
 
-    std::vector <PointType> laserCloudOriCornerVec; // corner point holder for parallel computation
-    std::vector <PointType> coeffSelCornerVec;
+    std::vector<PointType> laserCloudOriCornerVec; // corner point holder for parallel computation
+    std::vector<PointType> coeffSelCornerVec;
     std::vector<bool> laserCloudOriCornerFlag;
-    std::vector <PointType> laserCloudOriSurfVec; // surf point holder for parallel computation
-    std::vector <PointType> coeffSelSurfVec;
+    std::vector<PointType> laserCloudOriSurfVec; // surf point holder for parallel computation
+    std::vector<PointType> coeffSelSurfVec;
     std::vector<bool> laserCloudOriSurfFlag;
 
-    map<int, pair<pcl::PointCloud < PointType>, pcl::PointCloud<PointType>>>
-    laserCloudMapContainer;
+    map<int, pair<pcl::PointCloud<PointType>, pcl::PointCloud<PointType>>>
+            laserCloudMapContainer;
     pcl::PointCloud<PointType>::Ptr laserCloudCornerFromMap;
     pcl::PointCloud<PointType>::Ptr laserCloudSurfFromMap;
     pcl::PointCloud<PointType>::Ptr laserCloudCornerFromMapDS;
@@ -114,15 +114,15 @@ public:
     pcl::KdTreeFLANN<PointType>::Ptr kdtreeSurroundingKeyPoses;
     pcl::KdTreeFLANN<PointType>::Ptr kdtreeHistoryKeyPoses;
 
-    pcl::VoxelGrid <PointType> downSizeFilterCorner;
-    pcl::VoxelGrid <PointType> downSizeFilterSurf;
-    pcl::VoxelGrid <PointType> downSizeFilterICP;
-    pcl::VoxelGrid <PointType> downSizeFilterSurroundingKeyPoses; // for surrounding key poses of scan-to-map optimization
+    pcl::VoxelGrid<PointType> downSizeFilterCorner;
+    pcl::VoxelGrid<PointType> downSizeFilterSurf;
+    pcl::VoxelGrid<PointType> downSizeFilterICP;
+    pcl::VoxelGrid<PointType> downSizeFilterSurroundingKeyPoses; // for surrounding key poses of scan-to-map optimization
 
     rclcpp::Time timeLaserInfoStamp;
-    double timeLaserInfoCur;
+    double timeLaserInfoCur{};
 
-    float transformTobeMapped[6];
+    float transformTobeMapped[6]{};
 
     std::mutex mtx;
     std::mutex mtxLoopInfo;
@@ -137,10 +137,10 @@ public:
 
     bool aLoopIsClosed = false;
     map<int, int> loopIndexContainer; // from new to old
-    vector <pair<int, int>> loopIndexQueue;
-    vector <gtsam::Pose3> loopPoseQueue;
-    vector <gtsam::noiseModel::Diagonal::shared_ptr> loopNoiseQueue;
-    deque <std_msgs::msg::Float64MultiArray> loopInfoVec;
+    vector<pair<int, int>> loopIndexQueue;
+    vector<gtsam::Pose3> loopPoseQueue;
+    vector<gtsam::noiseModel::Diagonal::shared_ptr> loopNoiseQueue;
+    deque<std_msgs::msg::Float64MultiArray> loopInfoVec;
 
     nav_msgs::msg::Path globalPath;
 
@@ -148,9 +148,14 @@ public:
     Eigen::Affine3f incrementalOdometryAffineFront;
     Eigen::Affine3f incrementalOdometryAffineBack;
 
-    std::unique_ptr <tf2_ros::TransformBroadcaster> br;
+    std::unique_ptr<tf2_ros::TransformBroadcaster> br;
 
-    mapOptimization(const rclcpp::NodeOptions &options) : ParamServer("lio_sam_mapOptimization", options) {
+    geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr initial_pose_;
+    rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr pose_sub_;
+    bool is_map_loaded = false;
+    bool is_first_pose_added = false;
+
+    explicit mapOptimization(const rclcpp::NodeOptions &options) : ParamServer("lio_sam_mapOptimization", options) {
         ISAM2Params parameters;
         parameters.relinearizeThreshold = 0.1;
         parameters.relinearizeSkip = 1;
@@ -174,9 +179,16 @@ public:
                 "lio_loop/loop_closure_detection", qos,
                 std::bind(&mapOptimization::loopInfoHandler, this, std::placeholders::_1));
 
-        auto saveMapService = [this](const std::shared_ptr <rmw_request_id_t> request_header,
-                                     const std::shared_ptr <lio_sam::srv::SaveMap::Request> req,
-                                     std::shared_ptr <lio_sam::srv::SaveMap::Response> res) -> void {
+        rclcpp::SubscriptionOptions updatePoseOpt;
+        updatePoseOpt.callback_group = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+        pose_sub_ = create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
+                "initialpose", 10,
+                std::bind(&mapOptimization::InitPoseCallback, this, std::placeholders::_1),
+                updatePoseOpt);
+
+        auto saveMapService = [this](const std::shared_ptr<rmw_request_id_t> request_header,
+                                     const std::shared_ptr<lio_sam::srv::SaveMap::Request> req,
+                                     std::shared_ptr<lio_sam::srv::SaveMap::Response> res) -> void {
             (void) request_header;
             string saveMapDirectory;
             cout << "****************************************************" << endl;
@@ -254,6 +266,13 @@ public:
         allocateMemory();
     }
 
+    void
+    InitPoseCallback(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg) {
+        initial_pose_ = msg;
+        RCLCPP_INFO(get_logger(), "Initial pose obtained: %f %f %f",
+                    msg->pose.pose.position.x, msg->pose.pose.position.y, msg->pose.pose.position.z);
+    }
+
     void allocateMemory() {
         cloudKeyPoses3D.reset(new pcl::PointCloud<PointType>());
         cloudKeyPoses6D.reset(new pcl::PointCloud<PointTypePose>());
@@ -299,6 +318,17 @@ public:
     }
 
     void laserCloudInfoHandler(const lio_sam::msg::CloudInfo::SharedPtr msgIn) {
+        if (initial_pose_.get() == nullptr) {
+            RCLCPP_WARN(get_logger(), "Initial pose not set, skipping processing");
+            return;
+        }
+
+        // Set the initial pose in the GTSAM graph
+        if (!is_first_pose_added) {
+            setInitPoseVariables();
+            is_first_pose_added = true;
+        }
+
         // extract time stamp
         timeLaserInfoStamp = msgIn->header.stamp;
         timeLaserInfoCur = stamp2Sec(msgIn->header.stamp);
@@ -308,7 +338,7 @@ public:
         pcl::fromROSMsg(msgIn->cloud_corner, *laserCloudCornerLast);
         pcl::fromROSMsg(msgIn->cloud_surface, *laserCloudSurfLast);
 
-        std::lock_guard <std::mutex> lock(mtx);
+        std::lock_guard<std::mutex> lock(mtx);
 
         static double timeLastProcessing = -1;
         if (timeLaserInfoCur - timeLastProcessing >= mappingProcessInterval) {
@@ -469,7 +499,7 @@ public:
         for (int i = 0; i < (int) pointSearchIndGlobalMap.size(); ++i)
             globalMapKeyPoses->push_back(cloudKeyPoses3D->points[pointSearchIndGlobalMap[i]]);
         // downsample near selected key frames
-        pcl::VoxelGrid <PointType> downSizeFilterGlobalMapKeyPoses; // for global map visualization
+        pcl::VoxelGrid<PointType> downSizeFilterGlobalMapKeyPoses; // for global map visualization
         downSizeFilterGlobalMapKeyPoses.setLeafSize(globalMapVisualizationPoseDensity,
                                                     globalMapVisualizationPoseDensity,
                                                     globalMapVisualizationPoseDensity); // for global map visualization
@@ -492,7 +522,7 @@ public:
                                                         &cloudKeyPoses6D->points[thisKeyInd]);
         }
         // downsample visualized points
-        pcl::VoxelGrid <PointType> downSizeFilterGlobalMapKeyFrames; // for global map visualization
+        pcl::VoxelGrid<PointType> downSizeFilterGlobalMapKeyFrames; // for global map visualization
         downSizeFilterGlobalMapKeyFrames.setLeafSize(globalMapVisualizationLeafSize, globalMapVisualizationLeafSize,
                                                      globalMapVisualizationLeafSize); // for global map visualization
         downSizeFilterGlobalMapKeyFrames.setInputCloud(globalMapKeyFrames);
@@ -514,7 +544,7 @@ public:
     }
 
     void loopInfoHandler(const std_msgs::msg::Float64MultiArray::SharedPtr loopMsg) {
-        std::lock_guard <std::mutex> lock(mtxLoopInfo);
+        std::lock_guard<std::mutex> lock(mtxLoopInfo);
         if (loopMsg->data.size() != 2)
             return;
 
@@ -553,7 +583,7 @@ public:
         }
 
         // ICP Settings
-        static pcl::IterativeClosestPoint <PointType, PointType> icp;
+        static pcl::IterativeClosestPoint<PointType, PointType> icp;
         icp.setMaxCorrespondenceDistance(historyKeyframeSearchRadius * 2);
         icp.setMaximumIterations(100);
         icp.setTransformationEpsilon(1e-6);
@@ -642,7 +672,7 @@ public:
         int loopKeyCur = -1;
         int loopKeyPre = -1;
 
-        std::lock_guard <std::mutex> lock(mtxLoopInfo);
+        std::lock_guard<std::mutex> lock(mtxLoopInfo);
         if (loopInfoVec.empty())
             return false;
 
@@ -896,10 +926,10 @@ public:
                 *laserCloudSurfFromMap += laserCloudMapContainer[thisKeyInd].second;
             } else {
                 // transformed cloud not available
-                pcl::PointCloud <PointType> laserCloudCornerTemp = *transformPointCloud(
+                pcl::PointCloud<PointType> laserCloudCornerTemp = *transformPointCloud(
                         cornerCloudKeyFrames[thisKeyInd], &cloudKeyPoses6D->points[thisKeyInd]);
-                pcl::PointCloud <PointType> laserCloudSurfTemp = *transformPointCloud(surfCloudKeyFrames[thisKeyInd],
-                                                                                      &cloudKeyPoses6D->points[thisKeyInd]);
+                pcl::PointCloud<PointType> laserCloudSurfTemp = *transformPointCloud(surfCloudKeyFrames[thisKeyInd],
+                                                                                     &cloudKeyPoses6D->points[thisKeyInd]);
                 *laserCloudCornerFromMap += laserCloudCornerTemp;
                 *laserCloudSurfFromMap += laserCloudSurfTemp;
                 laserCloudMapContainer[thisKeyInd] = make_pair(laserCloudCornerTemp, laserCloudSurfTemp);
@@ -1478,8 +1508,32 @@ public:
         aLoopIsClosed = true;
     }
 
+    void setInitPoseVariables() {
+        const gtsam::noiseModel::Diagonal::shared_ptr sigma_init_x = gtsam::noiseModel::Diagonal::Sigmas(
+                (gtsam::Vector(6) << 1e6, 1e6, 1e-2, 1e-1, 1e-1, 1e6).finished());  // r, p, z are unobservable
+
+        auto q = Rot3::Quaternion(
+                initial_pose_->pose.pose.orientation.w,
+                initial_pose_->pose.pose.orientation.x,
+                initial_pose_->pose.pose.orientation.y,
+                initial_pose_->pose.pose.orientation.z);
+
+        auto t = gtsam::Point3(
+                initial_pose_->pose.pose.position.x,
+                initial_pose_->pose.pose.position.y,
+                initial_pose_->pose.pose.position.z);
+
+        // On the first optimization it is added in the addOdomFactor() function
+        transformTobeMapped[0] = q.roll();
+        transformTobeMapped[1] = q.pitch();
+        transformTobeMapped[2] = q.yaw();
+        transformTobeMapped[3] = t.x();
+        transformTobeMapped[4] = t.y();
+        transformTobeMapped[5] = t.z();
+    }
+
     void saveKeyFramesAndFactor() {
-        if (saveFrame() == false)
+        if (!saveFrame())
             return;
 
         // odom factor
@@ -1631,7 +1685,7 @@ public:
                                                         tf2::Vector3(transformTobeMapped[3], transformTobeMapped[4],
                                                                      transformTobeMapped[5]));
         tf2::TimePoint time_point = tf2_ros::fromRclcpp(timeLaserInfoStamp);
-        tf2::Stamped <tf2::Transform> temp_odom_to_lidar(t_odom_to_lidar, time_point, odometryFrame);
+        tf2::Stamped<tf2::Transform> temp_odom_to_lidar(t_odom_to_lidar, time_point, odometryFrame);
         geometry_msgs::msg::TransformStamped trans_odom_to_lidar;
         tf2::convert(temp_odom_to_lidar, trans_odom_to_lidar);
         trans_odom_to_lidar.child_frame_id = baselinkFrame;
