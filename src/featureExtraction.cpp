@@ -32,11 +32,11 @@ public:
     std_msgs::msg::Header cloudHeader;
 
     std::vector <smoothness_t> cloudSmoothness;
-    float *cloudCurvature;
-    int *cloudNeighborPicked;
-    int *cloudLabel;
+    float *cloudCurvature{};
+    int *cloudNeighborPicked{};
+    int *cloudLabel{};
 
-    FeatureExtraction(const rclcpp::NodeOptions &options) :
+    explicit FeatureExtraction(const rclcpp::NodeOptions &options) :
             ParamServer("lio_sam_featureExtraction", options) {
         subLaserCloudInfo = create_subscription<lio_sam::msg::CloudInfo>(
                 "lio_sam/deskew/cloud_info", qos,

@@ -64,8 +64,8 @@ private:
     double *imuRotY = new double[queueLength];
     double *imuRotZ = new double[queueLength];
 
-    int imuPointerCur;
-    bool firstPointFlag;
+    int imuPointerCur{};
+    bool firstPointFlag{};
     Eigen::Affine3f transStartInverse;
 
     pcl::PointCloud<PointXYZIRT>::Ptr laserCloudIn;
@@ -77,14 +77,14 @@ private:
     int deskewFlag;
     cv::Mat rangeMat;
 
-    bool odomDeskewFlag;
-    float odomIncreX;
-    float odomIncreY;
-    float odomIncreZ;
+    bool odomDeskewFlag{};
+    float odomIncreX{};
+    float odomIncreY{};
+    float odomIncreZ{};
 
     lio_sam::msg::CloudInfo cloudInfo;
-    double timeScanCur;
-    double timeScanEnd;
+    double timeScanCur{};
+    double timeScanEnd{};
     std_msgs::msg::Header cloudHeader;
 
     vector<int> columnIdnCountVec;
@@ -93,7 +93,7 @@ private:
     std::shared_ptr<tf2_ros::TransformListener> tfListener;
 
 public:
-    ImageProjection(const rclcpp::NodeOptions &options) :
+    explicit ImageProjection(const rclcpp::NodeOptions &options) :
             ParamServer("lio_sam_imageProjection", options), deskewFlag(0) {
         tfBuffer = std::make_shared<tf2_ros::Buffer>(get_clock());
         tfListener = std::make_shared<tf2_ros::TransformListener>(*tfBuffer);

@@ -13,6 +13,7 @@
 #include <gtsam/nonlinear/Marginals.h>
 #include <gtsam/nonlinear/Values.h>
 #include <gtsam/inference/Symbol.h>
+#include <pcl/io/ply_io.h>
 
 #include <gtsam/nonlinear/ISAM2.h>
 
@@ -152,8 +153,14 @@ public:
 
     geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr initial_pose_;
     rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr pose_sub_;
-    bool is_map_loaded = false;
     bool is_first_pose_added = false;
+
+    pcl::PointCloud<PointType>::Ptr map_cloud_;
+    pcl::IterativeClosestPoint<PointType, PointType> scan2map_icp_;
+    bool is_map_loaded = false;
+    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr map_pub_;
+    rclcpp::TimerBase::SharedPtr map_timer_;
+    rclcpp::CallbackGroup::SharedPtr timer_cb_group;    // must be a class member to avoid deallocation;
 
     explicit mapOptimization(const rclcpp::NodeOptions &options) : ParamServer("lio_sam_mapOptimization", options) {
         ISAM2Params parameters;
@@ -185,6 +192,38 @@ public:
                 "initialpose", 10,
                 std::bind(&mapOptimization::InitPoseCallback, this, std::placeholders::_1),
                 updatePoseOpt);
+
+        // Load the XYZ map from a PLY file
+        pcl::PointCloud<pcl::PointXYZ>::Ptr map_cloud(new pcl::PointCloud<pcl::PointXYZ>());
+        if (pcl::io::loadPLYFile<pcl::PointXYZ>(
+                "/ros2_ws/install/jablka_pure_localization/share/jablka_pure_localization/maps/map.ply",
+                *map_cloud) == -1) {
+            PCL_ERROR("Couldn't read the map file\n");
+            return;
+        }
+
+        // Convert pcl::PointXYZ to PointType
+        map_cloud_ = pcl::PointCloud<PointType>::Ptr(new pcl::PointCloud<PointType>());
+        for (const auto &point: map_cloud->points) {
+            PointType p;
+            p.x = point.x;
+            p.y = point.y;
+            p.z = point.z;
+            map_cloud_->push_back(p);
+        }
+
+        // Set the parameters for the ICP algorithm in Scan-to-Map optimization
+        scan2map_icp_.setMaxCorrespondenceDistance(5.0);  // Limit the distance for matching points
+        scan2map_icp_.setTransformationEpsilon(1e-6);     // Convergence threshold for transformation
+        scan2map_icp_.setEuclideanFitnessEpsilon(1e-5);   // Convergence threshold for fitness score
+        scan2map_icp_.setMaximumIterations(50);           // Limit iterations to avoid overfitting
+
+
+        timer_cb_group = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+        map_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("map3d", 10);
+        map_timer_ = create_wall_timer(std::chrono::seconds(5),
+                                       std::bind(&mapOptimization::MapPublish, this),
+                                       timer_cb_group);
 
         auto saveMapService = [this](const std::shared_ptr<rmw_request_id_t> request_header,
                                      const std::shared_ptr<lio_sam::srv::SaveMap::Request> req,
@@ -267,6 +306,28 @@ public:
     }
 
     void
+    MapPublish() {
+        RCLCPP_INFO(get_logger(), "Publishing map");
+        sensor_msgs::msg::PointCloud2 map_msg;
+
+        // Downsample the map
+        downSizeFilterICP.setInputCloud(map_cloud_);
+        downSizeFilterICP.filter(*map_cloud_);
+
+        // Add XYZ offset to the map (take into account on what height the map was made)
+        // TODO(mbed): Move it to parameters
+        pcl::transformPointCloud(*map_cloud_, *map_cloud_, {0.0, 0.0, 0.7}, {0.0, 0.0, 0.0, 1.0});
+
+        // Publish the map once
+        pcl::toROSMsg(*map_cloud_, map_msg);
+        map_msg.header.frame_id = "map";
+        map_msg.header.stamp = now();
+        map_pub_->publish(map_msg);
+        map_timer_->cancel();
+        is_map_loaded = true;
+    }
+
+    void
     InitPoseCallback(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg) {
         initial_pose_ = msg;
         RCLCPP_INFO(get_logger(), "Initial pose obtained: %f %f %f",
@@ -323,12 +384,6 @@ public:
             return;
         }
 
-        // Set the initial pose in the GTSAM graph
-        if (!is_first_pose_added) {
-            setInitPoseVariables();
-            is_first_pose_added = true;
-        }
-
         // extract time stamp
         timeLaserInfoStamp = msgIn->header.stamp;
         timeLaserInfoCur = stamp2Sec(msgIn->header.stamp);
@@ -345,6 +400,12 @@ public:
             timeLastProcessing = timeLaserInfoCur;
 
             updateInitialGuess();
+
+            // Overwrite the initial pose with the one from RViz
+            if (!is_first_pose_added) {
+                setInitPoseVariables();
+                is_first_pose_added = true;
+            }
 
             extractSurroundingKeyFrames();
 
@@ -952,7 +1013,7 @@ public:
     }
 
     void extractSurroundingKeyFrames() {
-        if (cloudKeyPoses3D->points.empty() == true)
+        if (cloudKeyPoses3D->points.empty())
             return;
 
         // if (loopClosureEnableFlag == true)
@@ -1420,6 +1481,61 @@ public:
         }
     }
 
+    void addScanToMapFactor() {
+        if (is_map_loaded && map_cloud_ != nullptr && !map_cloud_->empty() && !cloudKeyPoses3D->points.empty()) {
+            // Accumulate recent N keyframe poses
+//            pcl::PointCloud<PointType>::Ptr selectedKeyframe(new pcl::PointCloud<PointType>());
+//            if (cloudKeyPoses3D->size() < 10) {
+//                selectedKeyframe = laserCloudCornerFromMapDS;
+//            } else {
+//                for (size_t i = cloudKeyPoses3D->size() - 1; i >= cloudKeyPoses3D->size() - 1 - 10; --i) {
+//                    auto transformedCorner = transformPointCloud(cornerCloudKeyFrames[i], &cloudKeyPoses6D->points[i]);
+//                    if (transformedCorner && !transformedCorner->empty()) {
+//                        *selectedKeyframe += *transformedCorner;
+//                    }
+//                }
+//            }
+//
+//            if (selectedKeyframe->empty()) {
+//                RCLCPP_INFO(get_logger(), "Selected keyframe is empty. No scan-to-map factor added. ");
+//                return;
+//            }
+
+            // align the current scan with the map cloud
+//            scan2map_icp_.setInputSource(selectedKeyframe);
+            scan2map_icp_.setInputSource(laserCloudCornerLast);
+            scan2map_icp_.setInputTarget(map_cloud_);
+            pcl::PointCloud<PointType> aligned_scan;
+            scan2map_icp_.align(aligned_scan);
+            if (!scan2map_icp_.hasConverged()) {
+                return;
+            }
+
+            auto T_icp = scan2map_icp_.getFinalTransformation();
+            auto relative_pose_icp = Pose3(
+                    Rot3(T_icp(0, 0), T_icp(0, 1), T_icp(0, 2),
+                         T_icp(1, 0), T_icp(1, 1), T_icp(1, 2),
+                         T_icp(2, 0), T_icp(2, 1), T_icp(2, 2)),
+                    Point3(T_icp(0, 3), T_icp(1, 3), T_icp(2, 3)));
+
+            if (relative_pose_icp.equals(Pose3())) {
+                RCLCPP_WARN_STREAM(get_logger(), "Scan-to-Map ICP failed at factor. ");
+            } else {
+                auto global_pose = pclPointTogtsamPose3(cloudKeyPoses6D->points.back());
+                auto updated_pose = global_pose.compose(relative_pose_icp);
+                const noiseModel::Diagonal::shared_ptr pose_correction_noise = gtsam::noiseModel::Diagonal::Sigmas(
+                        (Vector(6) << 1e-1, 1e-1, 1e-1, 7e-1, 7e-1, 7e-1).finished());
+                gtSAMgraph.add(PriorFactor<Pose3>(cloudKeyPoses3D->size(),
+                                                  updated_pose,
+                                                  pose_correction_noise));
+
+                // TODO(mbed): see if we can overwrite the initial estimate from the odometry
+                // initialEstimate.insert(cloudKeyPoses3D->size(), updated_pose);
+                RCLCPP_INFO(get_logger(), "Scan-to-Map ICP converged. ");
+            }
+        }
+    }
+
     void addGPSFactor() {
         if (gpsQueue.empty())
             return;
@@ -1509,9 +1625,6 @@ public:
     }
 
     void setInitPoseVariables() {
-        const gtsam::noiseModel::Diagonal::shared_ptr sigma_init_x = gtsam::noiseModel::Diagonal::Sigmas(
-                (gtsam::Vector(6) << 1e6, 1e6, 1e-2, 1e-1, 1e-1, 1e6).finished());  // r, p, z are unobservable
-
         auto q = Rot3::Quaternion(
                 initial_pose_->pose.pose.orientation.w,
                 initial_pose_->pose.pose.orientation.x,
@@ -1545,6 +1658,11 @@ public:
         // loop factor
         addLoopFactor();
 
+        // each 10 keyframes, add a scan-to-map factor
+        if (cloudKeyPoses3D->size() % 10 == 0) {
+            addScanToMapFactor();
+        }
+
         // cout << "****************************************************" << endl;
         // gtSAMgraph.print("GTSAM Graph:\n");
 
@@ -1552,7 +1670,7 @@ public:
         isam->update(gtSAMgraph, initialEstimate);
         isam->update();
 
-        if (aLoopIsClosed == true) {
+        if (aLoopIsClosed) {
             isam->update();
             isam->update();
             isam->update();
@@ -1620,7 +1738,7 @@ public:
         if (cloudKeyPoses3D->points.empty())
             return;
 
-        if (aLoopIsClosed == true) {
+        if (aLoopIsClosed) {
             // clear map cache
             laserCloudMapContainer.clear();
             // clear path
@@ -1775,6 +1893,7 @@ public:
             pubPath->publish(globalPath);
         }
     }
+
 };
 
 
